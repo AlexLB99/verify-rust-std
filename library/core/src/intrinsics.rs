@@ -1390,6 +1390,13 @@ extern "rust-intrinsic" {
     #[rustc_const_stable(feature = "const_transmute", since = "1.56.0")]
     #[rustc_diagnostic_item = "transmute"]
     #[rustc_nounwind]
+    #[requires(mem::size_of::<Src>() == mem::size_of::<Dst>())]
+    #[requires(mem::size_of::<u32>() == mem::size_of::<Src>())]
+    #[requires(mem::size_of::<f32>() == mem::size_of::<Dst>())]
+    #[requires(mem::align_of::<u32>() == mem::align_of::<Src>())]
+    #[requires(mem::align_of::<f32>() == mem::align_of::<Dst>())]
+    #[ensures(result.as_usize()) == mem::size_of::<Src>()]
+    #[ensures(result.is_finite())]
     pub fn transmute<Src, Dst>(src: Src) -> Dst;
 
     /// Like [`transmute`], but even less checked at compile-time: rather than
