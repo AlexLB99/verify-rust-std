@@ -3606,23 +3606,41 @@ mod verify {
         assert!(unit_val == ());
     }
 
+    //QUESTION:
+    //we have two approaches for harnesses here
+    //This one has a single harness for an input/output type combo,
+    //and checks that the output is valid for any input (which will pass,
+    //since we have a precondition in the wrapper that checks that the input
+    //is valid). 
+    //The other approach has two harnesses for an input/output type combo.
+    //The first restricts the input to valid values, and checks that the output
+    //is valid. The second harness allows any input, and we annotate the harness
+    //with should_panic (since of course this includes invalid inputs)
+    //Which approach is better? The weakness of the first one is that it assumes
+    //that the precondition will prevent bad inputs, which is maybe bad for readability,
+    //and perhaps other reasons? The second approach doesn't make this assumption,
+    //but has the problem that the harness that is marked with should_panic doesn't
+    //really do anything, since the bad inputs are discarded by the wrapper's
+    //precondition.
     #[kani::proof_for_contract(transmute_unchecked_from_u32)]
     fn transmute_u32_to_char() {
         let num: u32 = kani::any();
         let c: char = unsafe {transmute_unchecked_from_u32(num)};
-        //Todo: think of good assert here
+        assert!((c as u32 <= 0xD7FF) || (c as u32 >= 0xE000 && c as u32 <= 0x10FFFF))
     }
 
     #[kani::proof_for_contract(transmute_unchecked_from_u8)] 
     fn transmute_valid_u8_to_bool() {
         let num: u8 = kani::any();
-        kani::assume(num == 0 || num == 1);
         let b: bool =  unsafe {transmute_unchecked_from_u8(num)};
         if num <= 1 {
             assert!(b == (num == 1));
         }
     }
 
+    //Note: this actually never panics, because the wrapper's
+    //requires clause prevents transmuting inputs other than 0 or
+    //1 into bools.
     #[kani::proof_for_contract(transmute_unchecked_from_u8)]
     #[kani::should_panic]
     fn transmute_invalid_u8_to_bool() {
