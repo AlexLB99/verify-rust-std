@@ -3525,11 +3525,33 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
     const_eval_select((ptr, align), compiletime, runtime);
 }
 
-//#[kani::requires(crate::any::type_name::<U>() != crate::any::type_name::<bool>())]
-#[kani::requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] // U cannot be larger than T
-#[ensures(|ret: &U| crate::any::type_name::<U>() != crate::any::type_name::<bool>())]
+use crate::any;
+//#[requires(crate::slice::from_raw_parts(input as *const T, crate::mem::size_of_val(&input)).iter().all(|&byte| byte == 0))]
+//#[requires(type_name::<T>() == type_name::<bool>() && input & 0xFF == 0)]
+//#[requires(type_name::<U>() != type_name::<eq || (input as u8 == 0 || input as u8 == 1) )]
+#[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] // U cannot be larger than T
+//#[ensures(|ret: &U| crate::any::type_name::<U>() != crate::any::type_name::<bool>())]
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] // check that the output type has expected alignment
-pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {
+pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
+    transmute_unchecked(input)
+}
+
+//#[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0)))]
+#[requires(type_name::<U>() != type_name::<char>() || (input <= T::from(0xD7FF) || (input >= T::from(0xE000) && input <= T::from(0x10FFFF)) ))]
+#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] 
+pub unsafe fn transmute_unchecked_from_u32<T,U>(input: T) -> U
+where
+    T: crate::ops::BitAnd<Output = T> + PartialEq + From<u32> + Copy + PartialOrd,
+{
+    transmute_unchecked(input)
+}
+
+#[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0) || input & T::from(0xFF) == T::from(1)))] 
+#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)]
+pub unsafe fn transmute_unchecked_from_u8<T,U>(input: T) -> U
+where
+    T: crate::ops::BitAnd<Output = T> + PartialEq + From<u8> + Copy + PartialOrd,
+{
     transmute_unchecked(input)
 }
 
@@ -3584,18 +3606,28 @@ mod verify {
         assert!(unit_val == ());
     }
 
-    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
-    fn transmute_different_validity_reqs() {
+    #[kani::proof_for_contract(transmute_unchecked_from_u32)]
+    fn transmute_u32_to_char() {
+        let num: u32 = kani::any();
+        let c: char = unsafe {transmute_unchecked_from_u32(num)};
+        //Todo: think of good assert here
+    }
+
+    #[kani::proof_for_contract(transmute_unchecked_from_u8)] 
+    fn transmute_valid_u8_to_bool() {
         let num: u8 = kani::any();
+        kani::assume(num == 0 || num == 1);
+        let b: bool =  unsafe {transmute_unchecked_from_u8(num)};
         if num <= 1 {
-            let b: bool =  unsafe {transmute_unchecked_wrapper(num)};
             assert!(b == (num == 1));
-        } else {
-            let b: bool =  unsafe {transmute_unchecked_wrapper(num)};
-            //This is not what we want, but it's what we expect
-            assert!(b == true);
-            //assert!(false);
         }
+    }
+
+    #[kani::proof_for_contract(transmute_unchecked_from_u8)]
+    #[kani::should_panic]
+    fn transmute_invalid_u8_to_bool() {
+        let num: u8 = kani::any();
+        let b: bool =  unsafe {transmute_unchecked_from_u8(num)};
     }
 
     #[repr(C)]
