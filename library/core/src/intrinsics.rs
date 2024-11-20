@@ -2821,10 +2821,10 @@ pub const fn const_eval_select<ARG: Tuple, F, G, RET>(
     _arg: ARG,
     _called_in_const: F,
     _called_at_rt: G,
-    ) -> RET
+) -> RET
 where
-G: FnOnce<ARG, Output = RET>,
-F: FnOnce<ARG, Output = RET>,
+    G: FnOnce<ARG, Output = RET>,
+    F: FnOnce<ARG, Output = RET>,
 {
     unreachable!()
 }
@@ -3319,9 +3319,9 @@ pub const unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, count: us
             count: usize = count,
         ) =>
         ub_checks::is_aligned_and_not_null(src, align)
-        && ub_checks::is_aligned_and_not_null(dst, align)
-        && ub_checks::is_nonoverlapping(src, dst, size, count)
-        );
+            && ub_checks::is_aligned_and_not_null(dst, align)
+            && ub_checks::is_nonoverlapping(src, dst, size, count)
+    );
 
     // SAFETY: the safety contract for `copy_nonoverlapping` must be
     // upheld by the caller.
@@ -3420,8 +3420,8 @@ pub const unsafe fn copy<T>(src: *const T, dst: *mut T, count: usize) {
                 align: usize = align_of::<T>(),
             ) =>
             ub_checks::is_aligned_and_not_null(src, align)
-            && ub_checks::is_aligned_and_not_null(dst, align)
-            );
+                && ub_checks::is_aligned_and_not_null(dst, align)
+        );
         copy(src, dst, count)
     }
 }
@@ -3498,7 +3498,7 @@ pub const unsafe fn write_bytes<T>(dst: *mut T, val: u8, count: usize) {
                 addr: *const () = dst as *const (),
                 align: usize = align_of::<T>(),
             ) => ub_checks::is_aligned_and_not_null(addr, align)
-            );
+        );
         write_bytes(dst, val, count)
     }
 }
