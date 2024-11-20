@@ -57,10 +57,10 @@
 #![unstable(
     feature = "core_intrinsics",
     reason = "intrinsics are unlikely to ever be stabilized, instead \
-    they should be used through stabilized interfaces \
+                      they should be used through stabilized interfaces \
                       in the rest of the standard library",
-                      issue = "none"
-           )]
+    issue = "none"
+)]
 #![allow(missing_docs)]
 
 use safety::{requires,ensures};
