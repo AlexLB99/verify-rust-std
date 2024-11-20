@@ -512,24 +512,3 @@ pub const fn black_box<T>(dummy: T) -> T {
 pub const fn must_use<T>(value: T) -> T {
     value
 }
-
-#[cfg(kani)]
-#[unstable(feature = "kani", issue = "none")]
-pub mod verify {
-        use crate::kani;
-
-            #[kani::proof]
-            pub fn harness_introduction() {
-                        kani::assert(true, "yay");
-                            }
-
-                #[kani::proof_for_contract(trivial_function)]
-                fn dummy_proof() {
-                            trivial_function(true);
-                                }
-
-                    #[kani::requires(x == true)]
-                    fn trivial_function(x: bool) -> bool {
-                                x
-                                        }
-}
