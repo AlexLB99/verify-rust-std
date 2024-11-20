@@ -3629,6 +3629,13 @@ mod verify {
         assert!((c as u32 <= 0xD7FF) || (c as u32 >= 0xE000 && c as u32 <= 0x10FFFF))
     }
 
+    #[kani::proof_for_contract(transmute_unchecked_from_u8)]
+    fn transmute_u8_to_bool() {
+        let num: u8 = kani::any();
+        let b: bool = unsafe {transmute_unchecked_from_u8(num)};
+        assert!(b == (num == 1));
+    }
+
     #[kani::proof_for_contract(transmute_unchecked_from_u8)] 
     fn transmute_valid_u8_to_bool() {
         let num: u8 = kani::any();
