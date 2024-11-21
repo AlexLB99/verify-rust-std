@@ -3526,18 +3526,16 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
 }
 
 use crate::any;
-//#[requires(crate::slice::from_raw_parts(input as *const T, crate::mem::size_of_val(&input)).iter().all(|&byte| byte == 0))]
-//#[requires(type_name::<T>() == type_name::<bool>() && input & 0xFF == 0)]
-//#[requires(type_name::<U>() != type_name::<eq || (input as u8 == 0 || input as u8 == 1) )]
-#[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] // U cannot be larger than T
-//#[ensures(|ret: &U| crate::any::type_name::<U>() != crate::any::type_name::<bool>())]
-#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] // check that the output type has expected alignment
+#[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] //U cannot be larger than T
+#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())] //the input align must be at least as strict as output align
+#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] //check that the output has expected alignment
 pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
     transmute_unchecked(input)
 }
 
-//#[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0)))]
+//This requires means [output is char implies input is valid unicode value]
 #[requires(type_name::<U>() != type_name::<char>() || (input <= T::from(0xD7FF) || (input >= T::from(0xE000) && input <= T::from(0x10FFFF)) ))]
+#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())]
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] 
 pub unsafe fn transmute_unchecked_from_u32<T,U>(input: T) -> U
 where
@@ -3546,7 +3544,9 @@ where
     transmute_unchecked(input)
 }
 
+//This requires means [output is bool implies input is 0 or 1]
 #[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0) || input & T::from(0xFF) == T::from(1)))] 
+#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())]
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)]
 pub unsafe fn transmute_unchecked_from_u8<T,U>(input: T) -> U
 where
@@ -3605,23 +3605,8 @@ mod verify {
         let unit_val: () = unsafe { transmute_unchecked_wrapper(empty_arr) };
         assert!(unit_val == ());
     }
-
-    //QUESTION:
-    //we have two approaches for harnesses here
-    //This one has a single harness for an input/output type combo,
-    //and checks that the output is valid for any input (which will pass,
-    //since we have a precondition in the wrapper that checks that the input
-    //is valid). 
-    //The other approach has two harnesses for an input/output type combo.
-    //The first restricts the input to valid values, and checks that the output
-    //is valid. The second harness allows any input, and we annotate the harness
-    //with should_panic (since of course this includes invalid inputs)
-    //Which approach is better? The weakness of the first one is that it assumes
-    //that the precondition will prevent bad inputs, which is maybe bad for readability,
-    //and perhaps other reasons? The second approach doesn't make this assumption,
-    //but has the problem that the harness that is marked with should_panic doesn't
-    //really do anything, since the bad inputs are discarded by the wrapper's
-    //precondition.
+    
+    //this should only transmute valid values due to precondition
     #[kani::proof_for_contract(transmute_unchecked_from_u32)]
     fn transmute_u32_to_char() {
         let num: u32 = kani::any();
@@ -3629,6 +3614,17 @@ mod verify {
         assert!((c as u32 <= 0xD7FF) || (c as u32 >= 0xE000 && c as u32 <= 0x10FFFF))
     }
 
+    //Note: this doesn't actually panic, because violating char's
+    //type invariants is not something that transmute checks for
+    #[kani::proof]
+    #[kani::should_panic]
+    fn transmute_invalid_u32_to_char() {
+        let num: u32 = kani::any();
+        let c: char = unsafe {transmute_unchecked_from_u32(num)};
+    }
+
+    //only transmutes 0 or 1 to bool due to requires clause
+    //so only uses valid values
     #[kani::proof_for_contract(transmute_unchecked_from_u8)]
     fn transmute_u8_to_bool() {
         let num: u8 = kani::any();
@@ -3636,19 +3632,9 @@ mod verify {
         assert!(b == (num == 1));
     }
 
-    #[kani::proof_for_contract(transmute_unchecked_from_u8)] 
-    fn transmute_valid_u8_to_bool() {
-        let num: u8 = kani::any();
-        let b: bool =  unsafe {transmute_unchecked_from_u8(num)};
-        if num <= 1 {
-            assert!(b == (num == 1));
-        }
-    }
-
-    //Note: this actually never panics, because the wrapper's
-    //requires clause prevents transmuting inputs other than 0 or
-    //1 into bools.
-    #[kani::proof_for_contract(transmute_unchecked_from_u8)]
+    //Note: this doesn't actually panic, because violating bool's
+    //type invariants is not something that transmute checks for.
+    #[kani::proof]
     #[kani::should_panic]
     fn transmute_invalid_u8_to_bool() {
         let num: u8 = kani::any();
@@ -3684,7 +3670,7 @@ mod verify {
 
       let b: B = unsafe { transmute_unchecked_wrapper(a) };
       assert!(b.x == x);
-      }*/
+    }*/
 
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_unchecked_padding() {
