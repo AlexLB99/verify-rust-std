@@ -3527,7 +3527,6 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
 
 use crate::any;
 #[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] //U cannot be larger than T
-#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())] //the input align must be at least as strict as output align
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] //check that the output has expected alignment
 pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
     transmute_unchecked(input)
@@ -3535,7 +3534,6 @@ pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {
 
 //This requires means [output is char implies input is valid unicode value]
 #[requires(type_name::<U>() != type_name::<char>() || (input <= T::from(0xD7FF) || (input >= T::from(0xE000) && input <= T::from(0x10FFFF)) ))]
-#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())]
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] 
 pub unsafe fn transmute_unchecked_from_u32<T,U>(input: T) -> U
 where
@@ -3546,7 +3544,6 @@ where
 
 //This requires means [output is bool implies input is 0 or 1]
 #[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0) || input & T::from(0xFF) == T::from(1)))] 
-#[ensures(|ret| crate::mem::align_of::<T>() >= crate::mem::align_of::<U>())]
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)]
 pub unsafe fn transmute_unchecked_from_u8<T,U>(input: T) -> U
 where
