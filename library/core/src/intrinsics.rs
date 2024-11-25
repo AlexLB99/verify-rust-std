@@ -3932,56 +3932,5 @@ mod verify {
         let c: i8 = unsafe { transmute_unchecked_wrapper(b) };
         assert_eq!(a,c);
     }
-    
-    #[kani::proof]
-    fn test_transmute_u32_to_bytes() {
-        // Create a nondeterministic u32 value.
-    	let num: u32 = kani::any();
-
-        // SAFETY: This transmute is safe because u32 and [u8; 4] have the same size.
-        let bytes: [u8; 4] = unsafe { transmute(num) };
-    
-        // To check if transmute preserves data, we can reinterpret bytes back to u32.
-        let num_back: u32 = unsafe { transmute(bytes) };
-    
-        // Assert that the original number and the reconstructed number are the same.
-        assert_eq!(num, num_back, "Transmute did not preserve the value");
-	}
-
-	//This doesn't compile, since transmuting values of different sizes is not allowed
-    /*#[kani::proof]
-	fn transmute_different_sizes() {
-    	let large_value: u64 = kani::any();
-    	unsafe {
-	        let truncated_value: u32 = transmute(large_value);
-        	assert!(truncated_value == (large_value as u32));
-    	}
-	}*/
-
-	#[kani::proof]
-	fn transmute_zero_size() {
-		let empty_arr: [u8;0] = [];
-		let unit_val: () = unsafe { transmute(empty_arr) };
-		assert!(unit_val == ());
-	}
-
-	#[kani::proof]
-	fn transmute_different_validy_reqs() {
-		let num: u8 = kani::any();
-		if num <= 1 {
-			let b: bool =  unsafe {transmute(num)};
-			assert!(b == (num == 1));
-		}
-		//What do we check if num > 1?
-	}
-	
-    #[kani::proof]
-    fn test_transmute_same_size() {
-  		let a: i32 = kani::any();
-		let b: u32 = unsafe { transmute(a) };
-		let c: i32 = unsafe { transmute(b) };
-		assert_eq!(a,c);
-	}
->>>>>>> 3148918... added transmute harnesses
 
 }
