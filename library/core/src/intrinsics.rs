@@ -3756,11 +3756,10 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
     const_eval_select((ptr, align), compiletime, runtime);
 }
 
-use crate::any;
 #[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] //U cannot be larger than T
 #[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] //check that the output has expected alignment
 pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
-    transmute_unchecked(input)
+    unsafe { transmute_unchecked(input) }
 }
 
 //This requires means [output is char implies input is valid unicode value]
@@ -3770,7 +3769,7 @@ pub unsafe fn transmute_unchecked_from_u32<T,U>(input: T) -> U
 where
     T: crate::ops::BitAnd<Output = T> + PartialEq + From<u32> + Copy + PartialOrd,
 {
-    transmute_unchecked(input)
+    unsafe { transmute_unchecked(input) }
 }
 
 //This requires means [output is bool implies input is 0 or 1]
@@ -3780,7 +3779,7 @@ pub unsafe fn transmute_unchecked_from_u8<T,U>(input: T) -> U
 where
     T: crate::ops::BitAnd<Output = T> + PartialEq + From<u8> + Copy + PartialOrd,
 {
-    transmute_unchecked(input)
+    unsafe { transmute_unchecked(input) }
 }
 
 #[cfg(kani)]
@@ -3842,9 +3841,8 @@ mod verify {
         assert!((c as u32 <= 0xD7FF) || (c as u32 >= 0xE000 && c as u32 <= 0x10FFFF))
     }
 
-    //Note: this doesn't actually panic, because violating char's
-    //type invariants is not something that transmute checks for
     #[kani::proof]
+    #[kani::stub_verified(transmute_unchecked_from_u32)]
     #[kani::should_panic]
     fn transmute_invalid_u32_to_char() {
         let num: u32 = kani::any();
@@ -3860,9 +3858,8 @@ mod verify {
         assert!(b == (num == 1));
     }
 
-    //Note: this doesn't actually panic, because violating bool's
-    //type invariants is not something that transmute checks for.
     #[kani::proof]
+    #[kani::stub_verified(transmute_unchecked_from_u8)]
     #[kani::should_panic]
     fn transmute_invalid_u8_to_bool() {
         let num: u8 = kani::any();
