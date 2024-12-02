@@ -64,7 +64,7 @@
 )]
 #![allow(missing_docs)]
 
-use safety::requires;
+use safety::{requires,ensures};
 use crate::marker::{DiscriminantKind, Tuple};
 use crate::mem::SizedTypeProperties;
 use crate::{ptr, ub_checks};
