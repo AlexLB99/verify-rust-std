@@ -11,13 +11,18 @@
 
 #![unstable(feature = "f128", issue = "116909")]
 
+use safety::requires;
+
 use crate::convert::FloatToInt;
 #[cfg(not(test))]
 use crate::intrinsics;
+#[cfg(kani)]
+use crate::kani;
 use crate::mem;
 use crate::num::FpCategory;
 use crate::panic::const_assert;
-
+#[allow(unused_imports)]
+use crate::ub_checks::float_to_int_in_range;
 /// Basic mathematical constants.
 #[unstable(feature = "f128", issue = "116909")]
 pub mod consts {
@@ -869,6 +874,8 @@ impl f128 {
     #[inline]
     #[unstable(feature = "f128", issue = "116909")]
     #[must_use = "this returns the result of the operation, without modifying the original"]
+    // is_finite() checks if the given float is neither infinite nor NaN.
+    #[requires(self.is_finite() && float_to_int_in_range::<Self, Int>(self))]
     pub unsafe fn to_int_unchecked<Int>(self) -> Int
     where
         Self: FloatToInt<Int>,

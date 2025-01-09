@@ -1,16 +1,17 @@
 //! Definitions of integer that is known not to equal zero.
 
+use safety::{ensures, requires};
+
 use super::{IntErrorKind, ParseIntError};
 use crate::cmp::Ordering;
 use crate::hash::{Hash, Hasher};
+#[cfg(kani)]
+use crate::kani;
 use crate::marker::{Freeze, StructuralPartialEq};
 use crate::ops::{BitOr, BitOrAssign, Div, DivAssign, Neg, Rem, RemAssign};
 use crate::panic::{RefUnwindSafe, UnwindSafe};
 use crate::str::FromStr;
 use crate::{fmt, intrinsics, ptr, ub_checks};
-use safety::{ensures, requires};
-#[cfg(kani)]
-use crate::kani;
 /// A marker trait for primitive types which can be zero.
 ///
 /// This is an implementation detail for <code>[NonZero]\<T></code> which may disappear or be replaced at any time.
@@ -380,9 +381,9 @@ where
     #[rustc_const_stable(feature = "nonzero", since = "1.28.0")]
     #[must_use]
     #[inline]
-    // #[rustc_allow_const_fn_unstable(const_refs_to_cell)] enables byte-level 
-    // comparisons within const functions. This is needed here to validate the 
-    // contents of `T` by converting a pointer to a `u8` slice for our `requires` 
+    // #[rustc_allow_const_fn_unstable(const_refs_to_cell)] enables byte-level
+    // comparisons within const functions. This is needed here to validate the
+    // contents of `T` by converting a pointer to a `u8` slice for our `requires`
     // and `ensures` checks.
     #[rustc_allow_const_fn_unstable(const_refs_to_cell)]
     #[requires({
@@ -398,7 +399,6 @@ where
         let result_ptr: *const T = &result_inner;
         let n_slice = unsafe { core::slice::from_raw_parts(n_ptr as *const u8, size) };
         let result_slice = unsafe { core::slice::from_raw_parts(result_ptr as *const u8, size) };
-    
         n_slice == result_slice
     })]
     pub const unsafe fn new_unchecked(n: T) -> Self {
@@ -2233,24 +2233,24 @@ nonzero_integer! {
     reversed = "0x6a2c48091e6a2c48",
 }
 
-#[unstable(feature="kani", issue="none")]
+#[unstable(feature = "kani", issue = "none")]
 #[cfg(kani)]
 mod verify {
-      use super::*;
+    use super::*;
 
     macro_rules! nonzero_check {
         ($t:ty, $nonzero_type:ty, $nonzero_check_new_unchecked_for:ident) => {
             #[kani::proof_for_contract(NonZero::new_unchecked)]
             pub fn $nonzero_check_new_unchecked_for() {
-                let x: $t = kani::any();  // Generates a symbolic value of the provided type
+                let x: $t = kani::any(); // Generates a symbolic value of the provided type
 
                 unsafe {
-                    <$nonzero_type>::new_unchecked(x);  // Calls NonZero::new_unchecked for the specified NonZero type
+                    <$nonzero_type>::new_unchecked(x); // Calls NonZero::new_unchecked for the specified NonZero type
                 }
             }
         };
     }
-    
+
     // Use the macro to generate different versions of the function for multiple types
     nonzero_check!(i8, core::num::NonZeroI8, nonzero_check_new_unchecked_for_i8);
     nonzero_check!(i16, core::num::NonZeroI16, nonzero_check_new_unchecked_for_16);
@@ -2264,4 +2264,218 @@ mod verify {
     nonzero_check!(u64, core::num::NonZeroU64, nonzero_check_new_unchecked_for_u64);
     nonzero_check!(u128, core::num::NonZeroU128, nonzero_check_new_unchecked_for_u128);
     nonzero_check!(usize, core::num::NonZeroUsize, nonzero_check_new_unchecked_for_usize);
+
+    macro_rules! nonzero_check_cmp {
+        ($nonzero_type:ty, $nonzero_check_cmp_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_cmp_for() {
+                let x: $nonzero_type = kani::any();
+                let y: $nonzero_type = kani::any();
+                if x < y {
+                    assert!(x.cmp(&y) == core::cmp::Ordering::Less);
+                } else if x > y {
+                    assert!(x.cmp(&y) == core::cmp::Ordering::Greater);
+                } else {
+                    assert!(x.cmp(&y) == core::cmp::Ordering::Equal);
+                }
+            }
+        };
+    }
+
+    // Use the macro to generate different versions of the function for multiple types
+    nonzero_check_cmp!(core::num::NonZeroI8, nonzero_check_cmp_for_i8);
+    nonzero_check_cmp!(core::num::NonZeroI16, nonzero_check_cmp_for_i16);
+    nonzero_check_cmp!(core::num::NonZeroI32, nonzero_check_cmp_for_i32);
+    nonzero_check_cmp!(core::num::NonZeroI64, nonzero_check_cmp_for_i64);
+    nonzero_check_cmp!(core::num::NonZeroI128, nonzero_check_cmp_for_i128);
+    nonzero_check_cmp!(core::num::NonZeroIsize, nonzero_check_cmp_for_isize);
+    nonzero_check_cmp!(core::num::NonZeroU8, nonzero_check_cmp_for_u8);
+    nonzero_check_cmp!(core::num::NonZeroU16, nonzero_check_cmp_for_u16);
+    nonzero_check_cmp!(core::num::NonZeroU32, nonzero_check_cmp_for_u32);
+    nonzero_check_cmp!(core::num::NonZeroU64, nonzero_check_cmp_for_u64);
+    nonzero_check_cmp!(core::num::NonZeroU128, nonzero_check_cmp_for_u128);
+    nonzero_check_cmp!(core::num::NonZeroUsize, nonzero_check_cmp_for_usize);
+
+    macro_rules! nonzero_check_max {
+        ($nonzero_type:ty, $nonzero_check_max_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_max_for() {
+                let x: $nonzero_type = kani::any();
+                let y: $nonzero_type = kani::any();
+                let result = x.max(y);
+                if x > y {
+                    assert!(result == x);
+                } else {
+                    assert!(result == y);
+                }
+            }
+        };
+    }
+
+    nonzero_check_max!(core::num::NonZeroI8, nonzero_check_max_for_i8);
+    nonzero_check_max!(core::num::NonZeroI16, nonzero_check_max_for_i16);
+    nonzero_check_max!(core::num::NonZeroI32, nonzero_check_max_for_i32);
+    nonzero_check_max!(core::num::NonZeroI64, nonzero_check_max_for_i64);
+    nonzero_check_max!(core::num::NonZeroI128, nonzero_check_max_for_i128);
+    nonzero_check_max!(core::num::NonZeroIsize, nonzero_check_max_for_isize);
+    nonzero_check_max!(core::num::NonZeroU8, nonzero_check_max_for_u8);
+    nonzero_check_max!(core::num::NonZeroU16, nonzero_check_max_for_u16);
+    nonzero_check_max!(core::num::NonZeroU32, nonzero_check_max_for_u32);
+    nonzero_check_max!(core::num::NonZeroU64, nonzero_check_max_for_u64);
+    nonzero_check_max!(core::num::NonZeroU128, nonzero_check_max_for_u128);
+    nonzero_check_max!(core::num::NonZeroUsize, nonzero_check_max_for_usize);
+
+    macro_rules! nonzero_check_min {
+        ($nonzero_type:ty, $nonzero_check_min_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_min_for() {
+                let x: $nonzero_type = kani::any();
+                let y: $nonzero_type = kani::any();
+                let result = x.min(y);
+                if x < y {
+                    assert!(result == x);
+                } else {
+                    assert!(result == y);
+                }
+            }
+        };
+    }
+
+    nonzero_check_min!(core::num::NonZeroI8, nonzero_check_min_for_i8);
+    nonzero_check_min!(core::num::NonZeroI16, nonzero_check_min_for_i16);
+    nonzero_check_min!(core::num::NonZeroI32, nonzero_check_min_for_i32);
+    nonzero_check_min!(core::num::NonZeroI64, nonzero_check_min_for_i64);
+    nonzero_check_min!(core::num::NonZeroI128, nonzero_check_min_for_i128);
+    nonzero_check_min!(core::num::NonZeroIsize, nonzero_check_min_for_isize);
+    nonzero_check_min!(core::num::NonZeroU8, nonzero_check_min_for_u8);
+    nonzero_check_min!(core::num::NonZeroU16, nonzero_check_min_for_u16);
+    nonzero_check_min!(core::num::NonZeroU32, nonzero_check_min_for_u32);
+    nonzero_check_min!(core::num::NonZeroU64, nonzero_check_min_for_u64);
+    nonzero_check_min!(core::num::NonZeroU128, nonzero_check_min_for_u128);
+    nonzero_check_min!(core::num::NonZeroUsize, nonzero_check_min_for_usize);
+
+    macro_rules! nonzero_check_clamp {
+        ($nonzero_type:ty, $nonzero_check_clamp_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_clamp_for() {
+                let x: $nonzero_type = kani::any();
+                let min: $nonzero_type = kani::any();
+                let max: $nonzero_type = kani::any();
+                // Ensure min <= max, so the function should no panic
+                kani::assume(min <= max);
+                // Use the clamp function and check the result
+                let result = x.clamp(min, max);
+                if x < min {
+                    assert!(result == min);
+                } else if x > max {
+                    assert!(result == max);
+                } else {
+                    assert!(result == x);
+                }
+            }
+        };
+    }
+
+    // Use the macro to generate different versions of the function for multiple types
+    nonzero_check_clamp!(core::num::NonZeroI8, nonzero_check_clamp_for_i8);
+    nonzero_check_clamp!(core::num::NonZeroI16, nonzero_check_clamp_for_16);
+    nonzero_check_clamp!(core::num::NonZeroI32, nonzero_check_clamp_for_32);
+    nonzero_check_clamp!(core::num::NonZeroI64, nonzero_check_clamp_for_64);
+    nonzero_check_clamp!(core::num::NonZeroI128, nonzero_check_clamp_for_128);
+    nonzero_check_clamp!(core::num::NonZeroIsize, nonzero_check_clamp_for_isize);
+    nonzero_check_clamp!(core::num::NonZeroU8, nonzero_check_clamp_for_u8);
+    nonzero_check_clamp!(core::num::NonZeroU16, nonzero_check_clamp_for_u16);
+    nonzero_check_clamp!(core::num::NonZeroU32, nonzero_check_clamp_for_u32);
+    nonzero_check_clamp!(core::num::NonZeroU64, nonzero_check_clamp_for_u64);
+    nonzero_check_clamp!(core::num::NonZeroU128, nonzero_check_clamp_for_u128);
+    nonzero_check_clamp!(core::num::NonZeroUsize, nonzero_check_clamp_for_usize);
+
+    macro_rules! nonzero_check_clamp_panic {
+        ($nonzero_type:ty, $nonzero_check_clamp_for:ident) => {
+            #[kani::proof]
+            #[kani::should_panic]
+            pub fn $nonzero_check_clamp_for() {
+                let x: $nonzero_type = kani::any();
+                let min: $nonzero_type = kani::any();
+                let max: $nonzero_type = kani::any();
+                // Ensure min > max, so the function should panic
+                kani::assume(min > max);
+                // Use the clamp function and check the result
+                let result = x.clamp(min, max);
+                if x < min {
+                    assert!(result == min);
+                } else if x > max {
+                    assert!(result == max);
+                } else {
+                    assert!(result == x);
+                }
+            }
+        };
+    }
+
+    // Use the macro to generate different versions of the function for multiple types
+    nonzero_check_clamp_panic!(core::num::NonZeroI8, nonzero_check_clamp_panic_for_i8);
+    nonzero_check_clamp_panic!(core::num::NonZeroI16, nonzero_check_clamp_panic_for_16);
+    nonzero_check_clamp_panic!(core::num::NonZeroI32, nonzero_check_clamp_panic_for_32);
+    nonzero_check_clamp_panic!(core::num::NonZeroI64, nonzero_check_clamp_panic_for_64);
+    nonzero_check_clamp_panic!(core::num::NonZeroI128, nonzero_check_clamp_panic_for_128);
+    nonzero_check_clamp_panic!(core::num::NonZeroIsize, nonzero_check_clamp_panic_for_isize);
+    nonzero_check_clamp_panic!(core::num::NonZeroU8, nonzero_check_clamp_panic_for_u8);
+    nonzero_check_clamp_panic!(core::num::NonZeroU16, nonzero_check_clamp_panic_for_u16);
+    nonzero_check_clamp_panic!(core::num::NonZeroU32, nonzero_check_clamp_panic_for_u32);
+    nonzero_check_clamp_panic!(core::num::NonZeroU64, nonzero_check_clamp_panic_for_u64);
+    nonzero_check_clamp_panic!(core::num::NonZeroU128, nonzero_check_clamp_panic_for_u128);
+    nonzero_check_clamp_panic!(core::num::NonZeroUsize, nonzero_check_clamp_panic_for_usize);
+
+    macro_rules! nonzero_check_count_ones {
+        ($nonzero_type:ty, $nonzero_check_count_ones_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_count_ones_for() {
+                let x: $nonzero_type = kani::any();
+                let result = x.count_ones();
+                // Since x is non-zero, count_ones should never return 0
+                assert!(result.get() > 0);
+            }
+        };
+    }
+
+    // Use the macro to generate different versions of the function for multiple types
+    nonzero_check_count_ones!(core::num::NonZeroI8, nonzero_check_count_ones_for_i8);
+    nonzero_check_count_ones!(core::num::NonZeroI16, nonzero_check_count_ones_for_i16);
+    nonzero_check_count_ones!(core::num::NonZeroI32, nonzero_check_count_ones_for_i32);
+    nonzero_check_count_ones!(core::num::NonZeroI64, nonzero_check_count_ones_for_i64);
+    nonzero_check_count_ones!(core::num::NonZeroI128, nonzero_check_count_ones_for_i128);
+    nonzero_check_count_ones!(core::num::NonZeroIsize, nonzero_check_count_ones_for_isize);
+    nonzero_check_count_ones!(core::num::NonZeroU8, nonzero_check_count_ones_for_u8);
+    nonzero_check_count_ones!(core::num::NonZeroU16, nonzero_check_count_ones_for_u16);
+    nonzero_check_count_ones!(core::num::NonZeroU32, nonzero_check_count_ones_for_u32);
+    nonzero_check_count_ones!(core::num::NonZeroU64, nonzero_check_count_ones_for_u64);
+    nonzero_check_count_ones!(core::num::NonZeroU128, nonzero_check_count_ones_for_u128);
+    nonzero_check_count_ones!(core::num::NonZeroUsize, nonzero_check_count_ones_for_usize);
+
+    macro_rules! nonzero_check_rotate_left_and_right {
+        ($nonzero_type:ty, $nonzero_check_rotate_for:ident) => {
+            #[kani::proof]
+            pub fn $nonzero_check_rotate_for() {
+                let x: $nonzero_type = kani::any();
+                let n: u32 = kani::any();
+                let result = x.rotate_left(n).rotate_right(n);
+                assert!(result == x);
+            }
+        };
+    }
+
+    // Use the macro to generate different versions of the function for multiple types
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroI8, nonzero_check_rotate_for_i8);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroI16, nonzero_check_rotate_for_i16);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroI32, nonzero_check_rotate_for_i32);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroI64, nonzero_check_rotate_for_i64);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroI128, nonzero_check_rotate_for_i128);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroIsize, nonzero_check_rotate_for_isize);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroU8, nonzero_check_rotate_for_u8);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroU16, nonzero_check_rotate_for_u16);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroU32, nonzero_check_rotate_for_u32);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroU64, nonzero_check_rotate_for_u64);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroU128, nonzero_check_rotate_for_u128);
+    nonzero_check_rotate_left_and_right!(core::num::NonZeroUsize, nonzero_check_rotate_for_usize);
 }
