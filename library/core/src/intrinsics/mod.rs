@@ -64,12 +64,6 @@
 )]
 #![allow(missing_docs)]
 
-<<<<<<< HEAD
-use safety::{requires,ensures};
-||||||| 7e8a03d
-use safety::requires;
-=======
->>>>>>> 2b2baa820494b069a2c6cc7cd623535e1635537b
 use crate::marker::{DiscriminantKind, Tuple};
 use crate::mem::SizedTypeProperties;
 use crate::{ptr, ub_checks};
@@ -4598,29 +4592,11 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
     )
 }
 
-#[requires(crate::mem::size_of::<T>() >= crate::mem::size_of::<U>())] //U cannot be larger than T
-#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] //check that the output has expected alignment
-pub unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
-    unsafe { transmute_unchecked(input) }
-}
-
-//This requires means [output is char implies input is valid unicode value]
-#[requires(type_name::<U>() != type_name::<char>() || (input <= T::from(0xD7FF) || (input >= T::from(0xE000) && input <= T::from(0x10FFFF)) ))]
-#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)] 
-pub unsafe fn transmute_unchecked_from_u32<T,U>(input: T) -> U
-where
-    T: crate::ops::BitAnd<Output = T> + PartialEq + From<u32> + Copy + PartialOrd,
-{
-    unsafe { transmute_unchecked(input) }
-}
-
-//This requires means [output is bool implies input is 0 or 1]
-#[requires(type_name::<U>() != type_name::<bool>() || (input & T::from(0xFF) == T::from(0) || input & T::from(0xFF) == T::from(1)))] 
-#[ensures(|ret: &U| (ret as *const U as usize) % crate::mem::align_of::<U>() == 0)]
-pub unsafe fn transmute_unchecked_from_u8<T,U>(input: T) -> U
-where
-    T: crate::ops::BitAnd<Output = T> + PartialEq + From<u8> + Copy + PartialOrd,
-{
+//We need this wrapper because transmute_unchecked is an intrinsic, for which Kani does not currently support contracts
+#[requires(crate::mem::size_of::<T>() == crate::mem::size_of::<U>())] //T and U have same size (transmute_unchecked does not guarantee this)
+#[ensures(|ret: &U| (ub_checks::can_dereference(ret as *const U)))] //output can be deref'd as value of type U
+#[allow(dead_code)]
+unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
     unsafe { transmute_unchecked(input) }
 }
 
@@ -4675,52 +4651,6 @@ mod verify {
         unsafe { copy_nonoverlapping(src, dst, kani::any()) }
     }
 
-    // FIXME: Enable this harness once <https://github.com/model-checking/kani/issues/90> is fixed.
-    // Harness triggers a spurious failure when writing 0 bytes to an invalid memory location,
-    // which is a safe operation.
-    #[cfg(not(kani))]
-    #[kani::proof_for_contract(write_bytes)]
-    fn check_write_bytes() {
-        let mut generator = PointerGenerator::<100>::new();
-        let ArbitraryPointer {
-            ptr,
-            status,
-            ..
-        } = generator.any_alloc_status::<char>();
-        kani::assume(supported_status(status));
-        unsafe { write_bytes(ptr, kani::any(), kani::any()) };
-    }
-
-    fn run_with_arbitrary_ptrs<T: Arbitrary>(harness: impl Fn(*mut T, *mut T)) {
-        let mut generator1 = PointerGenerator::<100>::new();
-        let mut generator2 = PointerGenerator::<100>::new();
-        let ArbitraryPointer {
-            ptr: src,
-            status: src_status,
-            ..
-        } = generator1.any_alloc_status::<T>();
-        let ArbitraryPointer {
-            ptr: dst,
-            status: dst_status,
-            ..
-        } = if kani::any() {
-            generator1.any_alloc_status::<T>()
-        } else {
-            generator2.any_alloc_status::<T>()
-        };
-        kani::assume(supported_status(src_status));
-        kani::assume(supported_status(dst_status));
-        harness(src, dst);
-    }
-
-    /// Return whether the current status is supported by Kani's contract.
-    ///
-    /// Kani memory predicates currently doesn't support pointers to dangling or dead allocations.
-    /// Thus, we have to explicitly exclude those cases.
-    fn supported_status(status: AllocationStatus) -> bool {
-        status != AllocationStatus::Dangling && status != AllocationStatus::DeadObject
-    }
-
     //this unexpectedly doesn't compile due to different sized inputs
     //Normally, transmute_unchecked should be fine as long as output is not larger
     /*#[kani::proof_for_contract(transmute_unchecked_wrapper)]
@@ -4739,37 +4669,32 @@ mod verify {
         assert!(unit_val == ());
     }
     
-    //this should only transmute valid values due to precondition
-    #[kani::proof_for_contract(transmute_unchecked_from_u32)]
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_u32_to_char() {
         let num: u32 = kani::any();
-        let c: char = unsafe {transmute_unchecked_from_u32(num)};
-        assert!((c as u32 <= 0xD7FF) || (c as u32 >= 0xE000 && c as u32 <= 0x10FFFF))
+        kani::assume((num <= 0xD7FF) || (num >= 0xE000 && num <= 0x10FFFF));
+        let c: char = unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    #[kani::proof]
-    #[kani::stub_verified(transmute_unchecked_from_u32)]
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     #[kani::should_panic]
     fn transmute_invalid_u32_to_char() {
         let num: u32 = kani::any();
-        let c: char = unsafe {transmute_unchecked_from_u32(num)};
+        let c: char = unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    //only transmutes 0 or 1 to bool due to requires clause
-    //so only uses valid values
-    #[kani::proof_for_contract(transmute_unchecked_from_u8)]
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_u8_to_bool() {
         let num: u8 = kani::any();
-        let b: bool = unsafe {transmute_unchecked_from_u8(num)};
-        assert!(b == (num == 1));
+        kani::assume(num == 0 || num == 1);
+        let b: bool = unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    #[kani::proof]
-    #[kani::stub_verified(transmute_unchecked_from_u8)]
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     #[kani::should_panic]
     fn transmute_invalid_u8_to_bool() {
         let num: u8 = kani::any();
-        let b: bool =  unsafe {transmute_unchecked_from_u8(num)};
+        let b: bool =  unsafe {transmute_unchecked_wrapper(num)};
     }
 
     #[repr(C)]
@@ -4834,6 +4759,51 @@ mod verify {
         let b: u8 = unsafe { transmute_unchecked_wrapper(a) };
         let c: i8 = unsafe { transmute_unchecked_wrapper(b) };
         assert_eq!(a,c);
+    }	
+
+    // FIXME: Enable this harness once <https://github.com/model-checking/kani/issues/90> is fixed.
+    // Harness triggers a spurious failure when writing 0 bytes to an invalid memory location,
+    // which is a safe operation.
+    #[cfg(not(kani))]
+    #[kani::proof_for_contract(write_bytes)]
+    fn check_write_bytes() {
+        let mut generator = PointerGenerator::<100>::new();
+        let ArbitraryPointer {
+            ptr,
+            status,
+            ..
+        } = generator.any_alloc_status::<char>();
+        kani::assume(supported_status(status));
+        unsafe { write_bytes(ptr, kani::any(), kani::any()) };
     }
 
+    fn run_with_arbitrary_ptrs<T: Arbitrary>(harness: impl Fn(*mut T, *mut T)) {
+        let mut generator1 = PointerGenerator::<100>::new();
+        let mut generator2 = PointerGenerator::<100>::new();
+        let ArbitraryPointer {
+            ptr: src,
+            status: src_status,
+            ..
+        } = generator1.any_alloc_status::<T>();
+        let ArbitraryPointer {
+            ptr: dst,
+            status: dst_status,
+            ..
+        } = if kani::any() {
+            generator1.any_alloc_status::<T>()
+        } else {
+            generator2.any_alloc_status::<T>()
+        };
+        kani::assume(supported_status(src_status));
+        kani::assume(supported_status(dst_status));
+        harness(src, dst);
+    }
+
+    /// Return whether the current status is supported by Kani's contract.
+    ///
+    /// Kani memory predicates currently doesn't support pointers to dangling or dead allocations.
+    /// Thus, we have to explicitly exclude those cases.
+    fn supported_status(status: AllocationStatus) -> bool {
+		status != AllocationStatus::Dangling && status != AllocationStatus::DeadObject
+    }
 }
