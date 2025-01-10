@@ -4592,11 +4592,31 @@ pub(crate) const fn miri_promise_symbolic_alignment(ptr: *const (), align: usize
     )
 }
 
+trait IsMutable {
+    fn is_mutable() -> bool;
+}
+
+impl<T> IsMutable for &T {
+    fn is_mutable() -> bool {
+        false
+    }
+}
+
+impl<T> IsMutable for &mut T {
+    fn is_mutable() -> bool {
+        true
+    }
+}
+
 //We need this wrapper because transmute_unchecked is an intrinsic, for which Kani does not currently support contracts
 #[requires(crate::mem::size_of::<T>() == crate::mem::size_of::<U>())] //T and U have same size (transmute_unchecked does not guarantee this)
 #[ensures(|ret: &U| (ub_checks::can_dereference(ret as *const U)))] //output can be deref'd as value of type U
+//#[ensures(|ret: U| (ret::is_mutable()))]
 #[allow(dead_code)]
-unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U {    
+unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U
+where
+	U: IsMutable,
+{    
     unsafe { transmute_unchecked(input) }
 }
 
@@ -4681,6 +4701,55 @@ mod verify {
     fn transmute_invalid_u32_to_char() {
         let num: u32 = kani::any();
         let c: char = unsafe {transmute_unchecked_wrapper(num)};
+    }
+
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    fn transmute_unchecked_pointers() {
+        let num: u32 = kani::any();
+        kani::assume((num <= 0xD7FF) || (num >= 0xE000 && num <= 0x10FFFF));
+        let num_ptr: *const u32 = &num;
+        let char_ptr: *const char = unsafe {transmute_unchecked_wrapper(num_ptr)};
+        let char_val: char = unsafe {*char_ptr};
+    }
+
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    fn transmute_unchecked_refs() {
+        let num: u32 = kani::any();
+        kani::assume((num <= 0xD7FF) || (num >= 0xE000 && num <= 0x10FFFF));
+        let num_ref: &u32 = &num;
+        let char_ref: &char = unsafe {transmute_unchecked_wrapper(num_ref)};
+        let char_val: char = unsafe {*char_ref};
+    }
+
+    //this should fail
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    fn transmute_unchecked_immut_to_mut() {
+        let num: u32 = kani::any();
+        let immut_ref: &u32 = &num;
+        let mut_ref: &mut u32 = unsafe {transmute_unchecked_wrapper(immut_ref)};
+    }
+
+    struct some_nums<'a> {
+        field1: &'a u32,
+        field2: &'a u32,
+    }
+
+    struct some_chars<'a> {
+        field1: &'a char,
+        field2: &'a char,
+    }
+
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    fn transmute_unchecked_refs_in_structs() {
+        let num1: u32 = 0;
+        let num2: u32 = kani::any();
+        kani::assume((num2 <= 0xD7FF) || (num2 >= 0xE000 && num2 <= 0x10FFFF));
+        let in_struct = some_nums {
+            field1: &num1,
+            field2: &num2,
+        };
+        let out_struct: some_chars = unsafe {transmute_unchecked_wrapper(in_struct)};
+        let char_val: char = unsafe {*out_struct.field2};
     }
 
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
