@@ -4609,13 +4609,15 @@ impl<T> IsMutable for &mut T {
 }
 
 //We need this wrapper because transmute_unchecked is an intrinsic, for which Kani does not currently support contracts
+#[requires(ub_checks::can_dereference(&input as *const T as *const U))] //output can be deref'd as value of type U
 #[requires(crate::mem::size_of::<T>() == crate::mem::size_of::<U>())] //T and U have same size (transmute_unchecked does not guarantee this)
-#[ensures(|ret: &U| (ub_checks::can_dereference(ret as *const U)))] //output can be deref'd as value of type U
+//#[ensures(|_| false)]
+//#[ensures(|ret &U (ub_checks::can_dereference(ret as *const U)))] //output can be deref'd as value of type U
 //#[ensures(|ret: U| (ret::is_mutable()))]
 #[allow(dead_code)]
 unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U
-where
-	U: IsMutable,
+//where
+	//U: IsMutable,
 {    
     unsafe { transmute_unchecked(input) }
 }
@@ -4692,12 +4694,13 @@ mod verify {
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_u32_to_char() {
         let num: u32 = kani::any();
-        kani::assume((num <= 0xD7FF) || (num >= 0xE000 && num <= 0x10FFFF));
         let c: char = unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    #[kani::proof]
+    #[kani::stub_verified(transmute_unchecked_wrapper)]
     #[kani::should_panic]
+    //to show that our preconditions work
     fn transmute_invalid_u32_to_char() {
         let num: u32 = kani::any();
         let c: char = unsafe {transmute_unchecked_wrapper(num)};
@@ -4755,11 +4758,11 @@ mod verify {
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_u8_to_bool() {
         let num: u8 = kani::any();
-        kani::assume(num == 0 || num == 1);
         let b: bool = unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    #[kani::proof]
+    #[kani::stub_verified(transmute_unchecked_wrapper)]
     #[kani::should_panic]
     fn transmute_invalid_u8_to_bool() {
         let num: u8 = kani::any();
