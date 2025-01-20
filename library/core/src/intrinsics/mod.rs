@@ -4623,6 +4623,13 @@ unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U
 }
 
 #[cfg(kani)]
+#[kani::proof]
+fn transmute_diff_size() {
+    let a: u32 = 10;
+	let b: u16 = unsafe { transmute_unchecked(a) };
+}
+
+#[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 mod verify {
     use super::*;
@@ -4769,14 +4776,14 @@ mod verify {
         let b: bool =  unsafe {transmute_unchecked_wrapper(num)};
     }
 
-    #[repr(C)]
+    //#[repr(C)]
     struct A {
         x: u8,
         y: u16,
         z: u8,
     }
 
-    #[repr(C)]
+    #[repr(packed)]
     struct B {
         x: u8,
         y: u8,
@@ -4792,22 +4799,23 @@ mod verify {
 
     //this doesn't compile, A and B have different sizes due to padding
     /*#[kani::proof_for_contract(transmute_unchecked_wrapper)]
-      fn transmute_unchecked_padding() {
-      let a = A {x: kani::any(), y: kani::any(), z: kani::any()};
+      fn transmute_unchecked_padding_faulty() {
+      //let a = A {x: kani::any(), y: kani::any(), z: kani::any()};
+      let a = A {x: 0, y: 0, z: 0};
       let x = a.x;
 
       let b: B = unsafe { transmute_unchecked_wrapper(a) };
       assert!(b.x == x);
     }*/
 
-    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    /*#[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_unchecked_padding() {
         let a = A {x: kani::any(), y: kani::any(), z: kani::any()};
         let x = a.x;
 
         let c: C = unsafe { transmute_unchecked_wrapper(a) };
         assert!(c.x as u8 == x);
-    }
+    }*/
 
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_unchecked_2ways_i64_u64() {

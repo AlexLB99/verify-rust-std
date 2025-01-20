@@ -1,0 +1,19 @@
+Using TOML file: tool_config/kani-version.toml
+Using repository URL: https://github.com/model-checking/kani.git
+Kani binary is up to date. Skipping build.
+Kani executable path: /home/alex/Documents/verify-rust-std/kani_build/scripts/kani
+Running Kani command...
+kani 0.56.0
+Running Kani verify-std command...
+Kani Rust Verifier 0.56.0 (standalone)
+error: internal compiler error: Kani unexpectedly panicked at panicked at cprover_bindings/src/goto_program/expr.rs:946:9:
+                                assertion `left == right` failed
+                                  left: 32
+                                 right: 16.
+
+error: Failed to compile `core` due to an internal compiler error.: error: internal compiler error: Kani unexpectedly panicked at panicked at cprover_bindings/src/goto_program/expr.rs:946:9:
+                                assertion `left == right` failed
+                                  left: 32
+                                 right: 16.
+
+
