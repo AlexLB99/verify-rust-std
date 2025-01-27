@@ -4623,13 +4623,6 @@ unsafe fn transmute_unchecked_wrapper<T,U>(input: T) -> U
 }
 
 #[cfg(kani)]
-#[kani::proof]
-fn transmute_diff_size() {
-    let a: u32 = 10;
-	let b: u16 = unsafe { transmute_unchecked(a) };
-}
-
-#[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 mod verify {
     use super::*;
@@ -4689,7 +4682,52 @@ mod verify {
       let truncated_value: u32 = transmute_unchecked_wrapper(large_value);
     //assert!((truncated_value as u32) == 64);
     }
-    }*/
+    }*/	
+
+	macro_rules! transmute_unchecked_should_succeed {
+    	($harness:ident, $src:ty, $dst:ty) => {
+        	#[kani::proof_for_contract(transmute_unchecked_wrapper)]
+        	fn $harness() {
+            	let src: $src = kani::any();
+            	let dst: $dst = unsafe { transmute_unchecked_wrapper(src) };
+        	}
+    	};
+	}
+
+	macro_rules! transmute_unchecked_should_fail {
+        ($harness:ident, $src:ty, $dst:ty) => {
+            #[kani::proof]
+    		#[kani::stub_verified(transmute_unchecked_wrapper)]
+    		#[kani::should_panic]
+            fn $harness() {
+                let src: $src = kani::any();
+                let dst: $dst = unsafe { transmute_unchecked_wrapper(src) };
+            }
+        };
+    }
+
+    //transmute between the 4-byte numerical types
+    transmute_unchecked_should_succeed!(transmute_unchecked_i32_to_u32, i32, u32);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u32_to_i32, u32, i32);
+    transmute_unchecked_should_succeed!(transmute_unchecked_i32_to_f32, i32, f32);
+    transmute_unchecked_should_succeed!(transmute_unchecked_f32_to_i32, f32, i32);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u32_to_f32, u32, f32);
+	transmute_unchecked_should_succeed!(transmute_unchecked_f32_to_u32, f32, u32);
+    //transmute between the 8-byte numerical types
+    transmute_unchecked_should_succeed!(transmute_unchecked_i64_to_u64, i64, u64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u64_to_i64, u64, i64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_i64_to_f64, i64, f64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_f64_to_i64, f64, i64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u64_to_f64, u64, f64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_f64_to_u64, f64, u64);
+    //transmute between arrays of bytes and numerical types
+    transmute_unchecked_should_succeed!(transmute_unchecked_arr_to_u32, [u8; 4], u32);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u32_to_arr, u32, [u8; 4]);
+    transmute_unchecked_should_succeed!(transmute_unchecked_arr_to_u64, [u8; 8], u64);
+    transmute_unchecked_should_succeed!(transmute_unchecked_u64_to_arr, u64, [u8; 8]);
+    //transmute to type with potentially invalid bit patterns
+	transmute_unchecked_should_fail!(transmute_unchecked_u8_to_bool, u8, bool);
+    transmute_unchecked_should_fail!(transmute_unchecked_u32_to_char, u32, char);
 
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_zero_size() {
@@ -4698,21 +4736,6 @@ mod verify {
         assert!(unit_val == ());
     }
     
-    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
-    fn transmute_u32_to_char() {
-        let num: u32 = kani::any();
-        let c: char = unsafe {transmute_unchecked_wrapper(num)};
-    }
-
-    #[kani::proof]
-    #[kani::stub_verified(transmute_unchecked_wrapper)]
-    #[kani::should_panic]
-    //to show that our preconditions work
-    fn transmute_invalid_u32_to_char() {
-        let num: u32 = kani::any();
-        let c: char = unsafe {transmute_unchecked_wrapper(num)};
-    }
-
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]
     fn transmute_unchecked_pointers() {
         let num: u32 = kani::any();
