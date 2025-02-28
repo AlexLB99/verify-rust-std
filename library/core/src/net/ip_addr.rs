@@ -2418,6 +2418,5 @@ mod verify {
         let addr = Ipv6Addr::new(a,b,c,d,e,f,g,h);
         let sgmts = Ipv6Addr::segments(&addr);
         assert!(a == sgmts[0] && b == sgmts[1] && c == sgmts[2] && d == sgmts[3] && e == sgmts[4] && f == sgmts[5] && g == sgmts[6] && h == sgmts[7]);
-        //get octets, do from_be, and see what's up
     }
 }
