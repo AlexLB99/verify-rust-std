@@ -1935,6 +1935,7 @@ pub const fn forget<T: ?Sized>(_: T) {
 #[rustc_nounwind]
 #[rustc_intrinsic]
 #[rustc_intrinsic_must_be_overridden]
+#[ensures(|ret| false)]
 pub const unsafe fn transmute<Src, Dst>(_src: Src) -> Dst {
     unreachable!()
 }
@@ -1950,11 +1951,17 @@ pub const unsafe fn transmute<Src, Dst>(_src: Src) -> Dst {
 /// may eventually be exposed through some more-constrained API.
 #[cfg_attr(bootstrap, rustc_const_stable(feature = "const_transmute", since = "1.56.0"))]
 #[cfg_attr(not(bootstrap), rustc_intrinsic_const_stable_indirect)]
-#[rustc_nounwind]
-#[rustc_intrinsic]
-#[rustc_intrinsic_must_be_overridden]
-pub const unsafe fn transmute_unchecked<Src, Dst>(_src: Src) -> Dst {
-    unreachable!()
+#[requires(ub_checks::can_dereference(&src as *const Src as *const Dst))]
+#[requires(crate::mem::size_of::<Src>() == crate::mem::size_of::<Dst>())]
+pub const unsafe fn transmute_unchecked<Src, Dst>(src: Src) -> Dst {
+    #[rustc_nounwind]
+    #[rustc_intrinsic]
+    #[rustc_intrinsic_must_be_overridden]
+    #[rustc_intrinsic_const_stable_indirect]
+    const unsafe fn transmute_unchecked<Src, Dst>(_src: Src) -> Dst {
+        unreachable!()
+    }
+    transmute_unchecked(src)
 }
 
 /// Returns `true` if the actual type given as `T` requires drop
@@ -4697,9 +4704,35 @@ mod verify {
     transmute_unchecked_should_succeed!(transmute_unchecked_u32_to_arr, u32, [u8; 4]);
     transmute_unchecked_should_succeed!(transmute_unchecked_arr_to_u64, [u8; 8], u64);
     transmute_unchecked_should_succeed!(transmute_unchecked_u64_to_arr, u64, [u8; 8]);
+    
     //transmute to type with potentially invalid bit patterns
     transmute_unchecked_should_fail!(transmute_unchecked_u8_to_bool, u8, bool);
     transmute_unchecked_should_fail!(transmute_unchecked_u32_to_char, u32, char);
+
+    #[kani::proof_for_contract(transmute_unchecked_wrapper)]
+    //#[kani::proof]
+    //#[kani::stub_verified(transmute_unchecked_wrapper)]
+    //#[kani::should_panic]
+    fn transmute_unchecked_refs() {
+        let my_int: u8 = kani::any();
+        let int_ref = &my_int;
+        let bool_ref: &bool = unsafe { transmute_unchecked_wrapper(int_ref) };
+        let int_ref2: &u8 = unsafe { transmute_unchecked_wrapper(int_ref) };
+        assert!(*int_ref2 == 0 || *int_ref2 == 1);
+    } 
+
+    //maybe do nested struct
+    //This is 2-bytes large
+    #[cfg_attr(kani, derive(kani::Arbitrary))]
+    #[repr(C)]
+    struct struct_A {
+        x: u8,
+        y: bool,
+    }
+    
+    transmute_unchecked_should_fail!(transmute_unchecked_to_invalid_struct, u16, struct_A);
+    transmute_unchecked_should_fail!(transmute_unchecked_to_invalid_tuple, u16, (u8,bool));
+    transmute_unchecked_should_fail!(transmute_unchecked_to_invalid_array, u16, [bool;2]);
 
     //tests that transmute works correctly when transmuting something with zero size
     #[kani::proof_for_contract(transmute_unchecked_wrapper)]

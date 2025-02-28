@@ -2397,3 +2397,27 @@ bitop_impls! {
     #[stable(feature = "ip_bitops", since = "1.75.0")]
     impl (BitOr, BitOrAssign) for Ipv6Addr = (bitor, bitor_assign);
 }
+
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+mod verify {
+    use super::*;
+    use crate::kani;
+
+	#[kani::proof]
+    fn Ipv6Addr_new_then_segment() {
+        let a: u16 = kani::any();
+        let b: u16 = kani::any(); 
+        let c: u16 = kani::any();
+        let d: u16 = kani::any();
+        let e: u16 = kani::any();
+        let f: u16 = kani::any();
+        let g: u16 = kani::any();
+        let h: u16 = kani::any();
+
+        let addr = Ipv6Addr::new(a,b,c,d,e,f,g,h);
+        let sgmts = Ipv6Addr::segments(&addr);
+        assert!(a == sgmts[0] && b == sgmts[1] && c == sgmts[2] && d == sgmts[3] && e == sgmts[4] && f == sgmts[5] && g == sgmts[6] && h == sgmts[7]);
+        //get octets, do from_be, and see what's up
+    }
+}

@@ -235,6 +235,7 @@ impl FromStr for char {
 }
 
 #[inline]
+//#[ensures(|ret| if let Ok(my_char) = ret {true})]
 const fn char_try_from_u32(i: u32) -> Result<char, CharTryFromError> {
     // This is an optimized version of the check
     // (i > MAX as u32) || (i >= 0xD800 && i <= 0xDFFF),
@@ -306,5 +307,14 @@ mod verify {
     fn check_from_u32_unchecked() {
         let i: u32 = kani::any();
         unsafe { from_u32_unchecked(i) };
+    }
+
+    //check that the transmute in char_try_from_u32() does not mutate the value
+    #[kani::proof]
+    fn check_char_try_from_u32() {
+        let i: u32 = kani::any();
+        if let Ok(my_char) = char_try_from_u32(i) {
+            assert_eq!(my_char as u32, i);
+        }
     }
 }
