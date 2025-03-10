@@ -19,6 +19,10 @@ use crate::ops::Range;
 use crate::slice::{self, SliceIndex};
 use crate::{ascii, mem};
 
+use safety::{ensures, requires};
+#[cfg(kani)]
+use crate::kani;
+
 pub mod pattern;
 
 mod lossy;
@@ -2682,6 +2686,7 @@ impl str {
     #[stable(feature = "ascii_methods_on_intrinsics", since = "1.23.0")]
     #[rustc_const_stable(feature = "const_make_ascii", since = "1.84.0")]
     #[inline]
+    #[ensures(|ret| validations::run_utf8_validation(ret).is_ok())]
     pub const fn make_ascii_uppercase(&mut self) {
         // SAFETY: changing ASCII letters only does not invalidate UTF-8.
         let me = unsafe { self.as_bytes_mut() };
@@ -3046,3 +3051,21 @@ impl_fn_for_zst! {
 // This is required to make `impl From<&str> for Box<dyn Error>` and `impl<E> From<E> for Box<dyn Error>` not overlap.
 #[stable(feature = "error_in_core_neg_impl", since = "1.65.0")]
 impl !crate::error::Error for &str {}
+
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+mod verify {
+    use super::*;
+    use crate::kani;    
+
+    #[kani::proof]
+    fn check_as_bytes() {
+        const MAX_SIZE: usize = 32;
+        let in_bytes: [u8; MAX_SIZE] = kani::any();
+
+        if let Ok(s) = from_utf8(&in_bytes) {
+            let out_bytes = s.as_bytes();
+            assert_eq!(in_bytes, out_bytes);
+        }
+    }   
+}
