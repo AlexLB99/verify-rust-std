@@ -5095,6 +5095,23 @@ mod verify {
     transmute_unchecked_two_ways!(transmute_unchecked_2ways_arr_to_u64, [u8; 8], u64);
     transmute_unchecked_two_ways!(transmute_unchecked_2ways_u64_to_arr, u64, [u8; 8]);
 
+    #[kani::proof]
+    fn check_same_ptr_addr() {
+        let ptr1 = kani::any::<usize>() as *const u8;
+        let ptr2: *const i8 = unsafe{transmute(ptr1)};
+        assert_eq!(ptr1 as *const i8, ptr2);
+    }
+
+    //TODO
+    #[kani::proof]
+    fn enumerate_refs() {
+        let mut generator = PointerGenerator::<10000>::new();
+        let arb_ptr: *const u8 = generator.any_in_bounds().ptr;
+        let arb_ref: &u8 = unsafe{&*(arb_ptr)};
+        let arb_ref_2: &i8 = unsafe{transmute(arb_ref)};
+        assert_eq!(arb_ref as *const u8, arb_ref_2 as *const i8 as *const u8)
+    }
+
     // FIXME: Enable this harness once <https://github.com/model-checking/kani/issues/90> is fixed.
     // Harness triggers a spurious failure when writing 0 bytes to an invalid memory location,
     // which is a safe operation.
