@@ -4381,7 +4381,7 @@ mod verify {
     transmute_unchecked_two_ways!(transmute_unchecked_2ways_arr_to_u64, [u8; 8], u64);
     transmute_unchecked_two_ways!(transmute_unchecked_2ways_u64_to_arr, u64, [u8; 8]);
 
-    //generates harness that transmutes values, and casts them back to the original type
+    //generates harness that transmutes some values, and casts them back to the original type
     //i.e. (src -> dest) then (dest -> src)
     //we then assert that the resulting value is equal to the initial value
     macro_rules! transmute_two_ways {
