@@ -4557,6 +4557,14 @@ mod verify {
         assert_eq!(arb_ptr as *const bool, arb_ptr_2 as *const u8 as *const bool);
     }
 
+    #[kani::proof]
+    fn check_transmute_mut_ptr_address() {
+        let mut generator = PointerGenerator::<10000>::new();
+        let arb_ptr: *mut bool = generator.any_in_bounds().ptr;
+        let arb_ptr_2: *mut u8 = unsafe { transmute(arb_ptr) };
+        assert_eq!(arb_ptr as *const bool, arb_ptr_2 as *const u8 as *const bool);
+    }
+
     //Tests that transmuting a ref does not mutate the stored address
     #[kani::proof]
     fn check_transmute_ref_address() {
@@ -4564,6 +4572,15 @@ mod verify {
         let arb_ptr: *const bool = generator.any_in_bounds().ptr;
         let arb_ref: &bool = unsafe { &*(arb_ptr) };
         let arb_ref_2: &u8 = unsafe { transmute(arb_ref) };
+        assert_eq!(arb_ref as *const bool, arb_ref_2 as *const u8 as *const bool);
+    }
+
+    #[kani::proof]
+    fn check_transmute_mut_ref_address() {
+        let mut generator = PointerGenerator::<10000>::new();
+        let arb_ptr: *mut bool = generator.any_in_bounds().ptr;
+        let arb_ref: &mut bool = unsafe { &mut *(arb_ptr) };
+        let arb_ref_2: &mut u8 = unsafe { transmute(&mut *(arb_ref)) };
         assert_eq!(arb_ref as *const bool, arb_ref_2 as *const u8 as *const bool);
     }
 
@@ -4578,6 +4595,21 @@ mod verify {
         //The following prevents taking redundant slices:
         kani::assume(arb_slice.as_ptr() == arb_arr_ptr as *const bool);
         let arb_slice_2: &[u8] = unsafe { transmute(arb_slice) };
+        assert_eq!(arb_slice.as_ptr(), arb_slice_2.as_ptr() as *const bool);
+        assert_eq!(arb_slice.len(), arb_slice_2.len());
+    }
+
+    //Tests that transmuting a slice does not mutate the slice metadata (address and length)
+    //Here, both the address and length of the slices are non-deterministic
+    #[kani::proof]
+    fn check_transmute_mut_slice_metadata() {
+        const MAX_SIZE: usize = 32;
+        let mut generator = PointerGenerator::<10000>::new();
+        let arb_arr_ptr: *mut [bool; MAX_SIZE] = generator.any_in_bounds().ptr;
+        let arb_slice = kani::slice::any_slice_of_array_mut(unsafe { &mut *(arb_arr_ptr) });
+        //The following prevents taking redundant slices:
+        kani::assume(arb_slice.as_ptr() == arb_arr_ptr as *const bool);
+        let arb_slice_2: &mut [u8] = unsafe { transmute(&mut *(arb_slice)) };
         assert_eq!(arb_slice.as_ptr(), arb_slice_2.as_ptr() as *const bool);
         assert_eq!(arb_slice.len(), arb_slice_2.len());
     }
