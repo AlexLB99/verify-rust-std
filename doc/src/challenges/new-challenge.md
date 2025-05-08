@@ -1,10 +1,10 @@
-# Challenge XXXX[^challenge_id]: Challenge Title
+# Challenge XXXX[^challenge_id]: Verify reference-counted Cell implementation
 
-- **Status:** *One of the following: \[Open | Resolved | Expired\]*
+- **Status:** Open
 - **Solution:** *Option field to point to the PR that solved this challenge.*
 - **Tracking Issue:** *Link to issue*
-- **Start date:** *YYYY/MM/DD*
-- **End date:** *YYYY/MM/DD*
+- **Start date:** 2025/05/01
+- **End date:** 2025/12/31
 - **Reward:** *TBD*[^reward]
 
 -------------------
@@ -12,7 +12,7 @@
 
 ## Goal
 
-*Describe the goal of this challenge with 1-2 sentences.*
+The goal of this challenge is to verify the Rc and Arc implementations, the library-provided building blocks that enable safe multiple ownership of data through reference counting.
 
 ## Motivation
 
