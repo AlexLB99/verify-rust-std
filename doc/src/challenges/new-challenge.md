@@ -12,11 +12,13 @@
 
 ## Goal
 
-The goal of this challenge is to verify the Rc and Arc implementations, the library-provided building blocks that enable safe multiple ownership of data through reference counting.
+The goal of this challenge is to verify the Rc and Arc implementations. Rc and Arc are the library-provided building blocks that enable safe multiple ownership of data through reference counting.
 
 ## Motivation
 
-*Explain why this is a challenge that should be prioritized. Consider using a motivating example.*
+The Rc (for single-threaded code) and Arc (multi-threaded) types are widely used in Rust programs to enable shared ownership of data through reference counting. Since shared ownership is generally not permitted in Rust, these implementations use unsafe code to bypass Rust's usual compile-time checks. Verifying the Rust standard library thus fundamentally requires verification of these types.
+
+The verification includes verification of a number of Rc and Arc methods that encapsulate unsafety, as well as providing contracts for unsafe methods that impose safety conditions on their callers for correct use.
 
 ## Description
 
