@@ -12,11 +12,13 @@
 
 ## Goal
 
-The goal of this challenge is to verify the Rc and Arc implementations. Rc and Arc are the library-provided building blocks that enable safe multiple ownership of data through reference counting.
+The goal of this challenge is to verify the Rc and Arc implementations. Rc and Arc are the library-provided building blocks that enable safe multiple ownership of data through reference counting. This challenge will yield 
+
+This challenge will not address the Weak implementation and the parts of Rc that deal with Weak; we will leave those for a future challenge.
 
 ## Motivation
 
-The Rc (for single-threaded code) and Arc (multi-threaded) types are widely used in Rust programs to enable shared ownership of data through reference counting. Since shared ownership is generally not permitted in Rust, these implementations use unsafe code to bypass Rust's usual compile-time checks. Verifying the Rust standard library thus fundamentally requires verification of these types.
+The Rc (for single-threaded code) and Arc (atomic multi-threaded) types are widely used in Rust programs to enable shared ownership of data through reference counting. Since shared ownership is generally not permitted by Rust's type system, these implementations use unsafe code to bypass Rust's usual compile-time checks. Verifying the Rust standard library thus fundamentally requires verification of these types.
 
 The verification includes verification of a number of Rc and Arc methods that encapsulate unsafety, as well as providing contracts for unsafe methods that impose safety conditions on their callers for correct use.
 
@@ -30,13 +32,30 @@ The verification includes verification of a number of Rc and Arc methods that en
 
 ### Success Criteria
 
-*Here are some examples of possible criteria:*
-
 All the following unsafe functions must be annotated with safety contracts and the contracts have been verified:
 
 | Function | Location |
 |---------|---------|
-|  abc   |  def    |
+|  Rc<mem::MaybeUninit<T>,A>::assume_init   |  alloc::rc    |
+|  Rc<[mem::MaybeUninit<T>],A>::assume_init   |  alloc::rc    |
+|  Rc<T>::from_raw  | alloc::rc |
+|  Rc<T>::from_raw_in  | alloc::rc |
+|  Rc<T>::increment_strong_count  | alloc::rc |
+|  Rc<T>::increment_strong_count_in  | alloc::rc |
+|  Rc<T>::decrement_strong_count  | alloc::rc |
+|  Rc<T>::decrement_strong_count_in  | alloc::rc |
+|  Rc<T>::get_mut_unchecked | alloc::rc | 
+|  Rc<T>::downcast_unchecked | alloc::rc |
+|  Arc<mem::MaybeUninit<T>,A>::assume_init   |  alloc::sync    |
+|  Arc<[mem::MaybeUninit<T>],A>::assume_init   |  alloc::sync    |
+|  Arc<T>::from_raw  | alloc::sync |
+|  Arc<T>::from_raw_in  | alloc::sync |
+|  Arc<T>::increment_strong_count  | alloc::sync |
+|  Arc<T>::increment_strong_count_in  | alloc::sync |
+|  Arc<T>::decrement_strong_count  | alloc::sync |
+|  Arc<T>::decrement_strong_count_in  | alloc::sync |
+|  Arc<T>::get_mut_unchecked | alloc::sync | 
+|  Arc<T>::downcast_unchecked | alloc::sync |
 
 At least N of the following usages were proven safe:
 
