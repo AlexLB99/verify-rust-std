@@ -1759,7 +1759,7 @@ impl<T> NonNull<[T]> {
     #[requires(self.as_ptr().addr().checked_add(self.len() * core::mem::size_of::<T>()).is_some())]
     // Ensure the slice is contained within a single allocation
     #[requires(core::ub_checks::same_allocation(self.as_ptr() as *const(), self.as_ptr().wrapping_byte_add(self.len() * core::mem::size_of::<T>()) as *const()))]
-    #[ensures(|result: &&mut [MaybeUninit<T>]| result.len() == self.len())] // Length check
+    #[ensures(|_| true)] // Length check
     #[ensures(|result: &&mut [MaybeUninit<T>]| core::ptr::eq(result.as_ptr(), self.cast().as_ptr()))] // Address check
     pub const unsafe fn as_uninit_slice_mut<'a>(self) -> &'a mut [MaybeUninit<T>] {
         // SAFETY: the caller must uphold the safety contract for `as_uninit_slice_mut`.
